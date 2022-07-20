@@ -1,4 +1,4 @@
-#!/bin/sh -l
+#!/bin/bash -l
 
 set -e  # if a command fails it stops the execution
 set -u  # script fails if trying to access to an undefined variable
@@ -15,6 +15,7 @@ DESTINATION_REPOSITORY_USERNAME="${8}"
 TARGET_BRANCH="${9}"
 COMMIT_MESSAGE="${10}"
 TARGET_DIRECTORY="${11}"
+DESTINATION_PATTERNS_TO_PRESERVE="${12}"
 
 if [ -z "$DESTINATION_REPOSITORY_USERNAME" ]
 then
@@ -83,6 +84,19 @@ TEMP_DIR=$(mktemp -d)
 # including "." and with the exception of ".git/"
 mv "$CLONE_DIR/.git" "$TEMP_DIR/.git"
 
+echo "BRAD LOOK HERE:"
+echo "$DESTINATION_PATTERNS_TO_PRESERVE"
+if [ -n "$DESTINATION_PATTERNS_TO_PRESERVE" ]
+then
+	echo "BRAD WE ARE TAKING THE BRANCH"
+	DESTINATION_PATTERNS_TO_PRESERVE_ARRAY=($DESTINATION_PATTERNS_TO_PRESERVE)
+	# NOTE(brad): The business inside ${...} is just prepending $CLONE_DIR/./ to every
+	# item in DESTINATION_PATTERNS_TO_PRESERVE_ARRAY. The /./ tells rsync to copy only the
+	# directory structure that comes after it (i.e., to not copy over the $CLONE_DIR portion
+	# of the path).
+	rsync -r --links ${DESTINATION_PATTERNS_TO_PRESERVE_ARRAY[@]/#/$CLONE_DIR/./} "$TEMP_DIR"
+fi
+
 # $TARGET_DIRECTORY is '' by default
 ABSOLUTE_TARGET_DIRECTORY="$CLONE_DIR/$TARGET_DIRECTORY/"
 
@@ -98,7 +112,9 @@ ls -al
 echo "[+] Listing root Location"
 ls -al /
 
-mv "$TEMP_DIR/.git" "$CLONE_DIR/.git"
+# NOTE(brad): This doesn't really need to perform a copy, but rsync made it easier to
+# make the moving process robust, so I used rsync anyway.
+rsync -r --links $TEMP_DIR/ "$CLONE_DIR"
 
 echo "[+] List contents of $SOURCE_DIRECTORY"
 ls "$SOURCE_DIRECTORY"
